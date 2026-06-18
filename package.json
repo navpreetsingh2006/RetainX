@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:api": "npm run dev --prefix server",
+    "server": "npm run dev --prefix server",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

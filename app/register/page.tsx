@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { TrendingUp, ArrowRight, ShieldCheck, Mail, Lock, User, Building } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { registerUser } from "@/lib/api"
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -48,7 +49,7 @@ function RegisterPageContent() {
     }
   }
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!name || !email || !company || !password || !username) {
@@ -56,14 +57,29 @@ function RegisterPageContent() {
       return
     }
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.")
+      return
+    }
+
     setLoading(true)
     setError("")
 
-    // Simulated registration redirecting to dashboard onboarding
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await registerUser({
+        name,
+        email,
+        password,
+        company,
+        username,
+        plan: selectedPlan || "trial",
+      })
       router.push("/dashboard")
-    }, 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -334,13 +350,8 @@ function RegisterPageContent() {
 
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setLoading(true)
-                    setTimeout(() => {
-                      setLoading(false)
-                      router.push("/dashboard")
-                    }, 1000)
-                  }}
+                  type="button"
+                  onClick={() => setError("Google SSO is not configured. Please register with email.")}
                   className="w-full border-border hover:bg-muted/50 rounded-xl py-6 font-medium text-xs flex justify-center items-center gap-2"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24">

@@ -23,7 +23,8 @@ export function Header() {
 
   // Avoid hydration mismatch by waiting for mount
   React.useEffect(() => {
-    setMounted(true)
+    const timeout = window.setTimeout(() => setMounted(true), 0)
+    return () => clearTimeout(timeout)
   }, [])
 
   const toggleTheme = () => {
@@ -39,7 +40,7 @@ export function Header() {
             <TrendingUp className="h-5 w-5" />
           </div>
           <span className="bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-transparent">
-            Retain<span className="text-indigo-600 dark:text-indigo-400 font-extrabold">AI</span>
+            RetainX<span className="text-indigo-600 dark:text-indigo-400 font-extrabold"></span>
           </span>
         </Link>
 
@@ -83,15 +84,15 @@ export function Header() {
             )}
           </Button>
 
-          <Link href="/register">
+          <Link href="/login">
             <Button variant="ghost" className="font-medium text-sm rounded-xl">
               Sign In
             </Button>
           </Link>
 
-          <Link href="/dashboard">
+          <Link href="/register">
             <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-md shadow-indigo-500/10 font-semibold rounded-xl text-sm transition-all duration-200 hover:-translate-y-0.5">
-              Dashboard Demo
+              Start Free Trial
             </Button>
           </Link>
         </div>
@@ -146,9 +147,9 @@ export function Header() {
                 Sign In
               </Button>
             </Link>
-            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+            <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
               <Button className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold shadow-sm">
-                Dashboard Demo
+                Start Free Trial
               </Button>
             </Link>
           </div>

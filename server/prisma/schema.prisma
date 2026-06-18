@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -15,9 +10,56 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   name      String
+  username  String?  @unique
   email     String   @unique
   password  String
   company   String
+  plan      String   @default("trial")
   role      String   @default("user")
   createdAt DateTime @default(now())
+
+  customers    Customer[]
+  alerts       Alert[]
+  integrations Integration[]
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  name      String
+  email     String
+  risk      Int
+  mrr       Int
+  health    Int
+  playbook  String   @default("None")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Alert {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  text      String
+  color     String   @default("text-indigo-600 dark:text-indigo-400")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Integration {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  name       String
+  status     String   @default("Active")
+  lastSyncAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
