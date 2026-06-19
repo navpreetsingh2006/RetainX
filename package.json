@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "concurrently -n \"next,api\" -c \"blue,green\" \"next dev --turbopack\" \"npm run dev:api\"",
     "dev:api": "npm run dev --prefix server",
     "server": "npm run dev --prefix server",
     "build": "next build",
@@ -43,6 +43,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
+    "concurrently": "^10.0.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.7",
     "postcss": "^8.5.15",

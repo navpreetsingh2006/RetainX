@@ -6,9 +6,30 @@ import dashboardRoutes from './routes/dashboardRoutes.ts';
 
 dotenv.config();
 const app = express();
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 app.use(
   cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const isLocal = origin.startsWith('http://localhost:') || 
+                      origin.startsWith('http://127.0.0.1:') ||
+                      origin.startsWith('http://192.168.') || 
+                      origin.startsWith('http://10.') || 
+                      origin.startsWith('http://172.');
+      if (isLocal || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
