@@ -18,26 +18,37 @@ model User {
   role      String   @default("user")
   createdAt DateTime @default(now())
 
-  customers    Customer[]
-  alerts       Alert[]
-  integrations Integration[]
+  customers       Customer[]
+  reports         Report[]
+  notifications   Notification[]
+  subscriptions   Subscription[]
+  activityLogs    ActivityLog[]
 }
 
 model Customer {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  name      String
-  email     String
-  risk      Int
-  mrr       Int
-  health    Int
-  playbook  String   @default("None")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  customerName     String
+  email            String?
+  phone            String?
+  gender           String?
+  age              Int?
+  location         String?
+  contractType     String?
+  paymentMethod    String?
+  tenure           Int?
+  monthlyCharges   Float?
+  totalCharges     Float?
+  supportTickets   Int?
+  status           String? @default("Active")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
 
-  @@index([userId])
+  userId           Int
+  user             User @relation(fields: [userId], references: [id])
+
+  predictions      Prediction[]
+  interactions     Interaction[]
+  retentionActions RetentionAction[]
 }
 
 model Alert {
@@ -62,4 +73,83 @@ model Integration {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Prediction {
+  id               Int      @id @default(autoincrement())
+
+  customerId       Int
+  customer         Customer @relation(fields: [customerId], references: [id])
+
+  churnPrediction  Boolean
+  probability      Float
+  riskLevel        String
+
+  createdAt        DateTime @default(now())
+}
+
+model RetentionAction {
+  id            Int      @id @default(autoincrement())
+
+  customerId    Int
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  actionType    String
+  description   String
+  status        String
+
+  createdAt     DateTime @default(now())
+}
+
+
+model Report {
+  id          Int      @id @default(autoincrement())
+
+  title       String
+  reportType  String
+  fileUrl     String?
+
+  userId      Int
+  user        User @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+
+  title       String
+  message     String
+  isRead      Boolean @default(false)
+
+  userId      Int
+  user        User @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
+
+model Subscription {
+  id            Int      @id @default(autoincrement())
+
+  planName      String
+  status        String
+  amount        Float
+
+  userId        Int
+  user          User @relation(fields: [userId], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+
+  action      String
+  entity      String
+
+  userId      Int
+  user        User @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
 }

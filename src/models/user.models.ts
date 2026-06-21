@@ -1,6 +1,6 @@
-import mongoose, {Mongoose} from "mongoose";
+import mongoose, { Mongoose, Document } from "mongoose";
 
-interface User extends Documents{
+interface User extends Document{
 
 }
 const userSchema=new mongoose.Schema({},{})

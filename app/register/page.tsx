@@ -16,10 +16,10 @@ function RegisterPageContent() {
 
   const [name, setName] = React.useState("")
   const [company, setCompany] = React.useState("")
-  
+
   const [username, setUsername] = React.useState("")
   const [email, setEmail] = React.useState("")
-  
+
   const [password, setPassword] = React.useState("")
 
   const [loading, setLoading] = React.useState(false)
@@ -130,7 +130,7 @@ function RegisterPageContent() {
 
         {/* Footer info */}
         <div className="flex justify-between items-center text-xs text-indigo-300 relative z-10">
-          <span>&copy; RetainAI Inc.</span>
+          <span>&copy; ReatainX Inc.</span>
           <span className="flex items-center gap-1">
             <ShieldCheck className="h-4 w-4 text-cyan-400" /> SOC2 Type II Certified
           </span>
@@ -302,7 +302,7 @@ function RegisterPageContent() {
                     Back
                   </Button>
                 )}
-                
+
                 {step < 3 ? (
                   <Button
                     type="button"

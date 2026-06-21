@@ -75,8 +75,9 @@ export const getDashboard = async (req: AuthRequest, res: Response) => {
     ]);
 
     const metrics = computeMetrics(customers);
-    const lastSync = integrations.length > 0
-      ? integrations.reduce((latest, i) => (i.lastSyncAt > latest ? i.lastSyncAt : latest), integrations[0].lastSyncAt)
+    const firstIntegration = integrations[0];
+    const lastSync = integrations.length > 0 && firstIntegration
+      ? integrations.reduce((latest, i) => (i.lastSyncAt > latest ? i.lastSyncAt : latest), firstIntegration.lastSyncAt)
       : new Date();
 
     return res.status(200).json({
@@ -176,5 +177,79 @@ export const exportCustomers = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+};
+
+export const getPrediction = async (req: AuthRequest, res: Response) => {
+  try {
+    const { logins, tickets, invoiceDays } = req.body;
+
+    if (logins === undefined || tickets === undefined || invoiceDays === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'logins, tickets, and invoiceDays are required',
+      });
+    }
+
+    const numLogins = Number(logins);
+    const numTickets = Number(tickets);
+    const numInvoiceDays = Number(invoiceDays);
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 1000);
+
+    try {
+      const flaskResponse = await fetch('http://127.0.0.1:5001/predict', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          logins: numLogins,
+          tickets: numTickets,
+          invoice_days: numInvoiceDays,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(id);
+
+      if (flaskResponse.ok) {
+        const flaskData = await flaskResponse.json() as { risk_score?: number; churn_probability?: number; risk?: number };
+        const riskVal = flaskData.risk_score !== undefined 
+          ? flaskData.risk_score 
+          : flaskData.churn_probability !== undefined 
+            ? flaskData.churn_probability 
+            : flaskData.risk;
+        
+        if (riskVal !== undefined) {
+          return res.status(200).json({
+            success: true,
+            risk: Math.round(riskVal),
+            source: 'flask',
+          });
+        }
+      }
+    } catch {
+      clearTimeout(id);
+    }
+
+    let base = 40;
+    base -= numLogins * 1.5;
+    base += numTickets * 8;
+    base += numInvoiceDays * 1.2;
+    const fallbackRisk = Math.max(5, Math.min(99, Math.round(base)));
+
+    return res.status(200).json({
+      success: true,
+      risk: fallbackRisk,
+      source: 'fallback',
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+    });
   }
 };

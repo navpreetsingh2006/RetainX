@@ -49,7 +49,7 @@ export default function AboutPage() {
       <Header />
 
       <main className="flex-grow">
-        
+
         {/* STORY HERO */}
         <section className="relative overflow-hidden py-20 lg:py-28">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(115%_120%_at_top_left,rgba(99,102,241,0.05)_0%,transparent_70%)]" />
@@ -60,7 +60,7 @@ export default function AboutPage() {
                 Fighting subscription fatigue with proactive AI
               </h1>
               <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-                We believe that great customer relationships are built on understanding. RetainAI was founded to replace late-stage cancellation offers with early-stage value reviews, ensuring companies grow together with their subscribers.
+                We believe that great customer relationships are built on understanding. ReatainX was founded to replace late-stage cancellation offers with early-stage value reviews, ensuring companies grow together with their subscribers.
               </p>
             </div>
           </div>
@@ -127,10 +127,10 @@ export default function AboutPage() {
                 <div className="hidden md:block absolute -left-32 top-1 text-right w-24 font-mono font-black text-xl text-indigo-600 dark:text-indigo-400">
                   {item.year}
                 </div>
-                
+
                 {/* Dot indicator */}
                 <div className="absolute -left-[9px] top-1.5 h-4.5 w-4.5 rounded-full border-4 border-background bg-indigo-600" />
-                
+
                 {/* Mobile Year Badge */}
                 <div className="md:hidden inline-block px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold font-mono mb-2">
                   {item.year}
@@ -148,7 +148,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-20">
               <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Leadership</span>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight">Meet the RetainAI Pioneers</h2>
+              <h2 className="mt-2 text-3xl font-bold tracking-tight">Meet the ReatainX Pioneers</h2>
               <p className="mt-4 text-sm text-muted-foreground">
                 We're a distributed team of engineers, data scientists, and customer operations leaders.
               </p>

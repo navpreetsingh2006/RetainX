@@ -39,7 +39,7 @@ export default function FeaturesPage() {
                 Every tool you need to stop churn in its tracks
               </h1>
               <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-                RetainAI combines enterprise-grade machine learning models with powerful workflow automation. Understand why customers leave, predict exactly when they will, and step in instantly.
+                ReatainX combines enterprise-grade machine learning models with powerful workflow automation. Understand why customers leave, predict exactly when they will, and step in instantly.
               </p>
             </div>
           </div>
@@ -288,7 +288,7 @@ export default function FeaturesPage() {
                   </div>
                   <h3 className="text-2xl font-bold">No-Code Actionable Playbooks</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Customer success teams are often too busy. RetainAI automates high-value, repetitive workflows. Build logical pathways to alert the specific customer success representative, trigger customer satisfaction surveys, or credit billing cycles instantly when high churn thresholds trigger.
+                    Customer success teams are often too busy. ReatainX automates high-value, repetitive workflows. Build logical pathways to alert the specific customer success representative, trigger customer satisfaction surveys, or credit billing cycles instantly when high churn thresholds trigger.
                   </p>
                   <ul className="space-y-3">
                     {["Automated Slack alerts with direct account summaries", "Conditional logic branches (revenue/age/tier)", "Direct API webhook integrations to trigger email workflows"].map((item, idx) => (
@@ -324,7 +324,7 @@ export default function FeaturesPage() {
               </div>
               <h3 className="text-2xl font-bold">Data Privacy is Our Priority</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                We handle customer tracking profiles with care. RetainAI is SOC2 Type II certified, fully compliant with GDPR regulations, and utilizes end-to-end TLS 1.3 encryption protocols. We never store personal customer credentials.
+                We handle customer tracking profiles with care. ReatainX is SOC2 Type II certified, fully compliant with GDPR regulations, and utilizes end-to-end TLS 1.3 encryption protocols. We never store personal customer credentials.
               </p>
             </div>
             <div className="flex flex-wrap gap-4 justify-center md:justify-end text-xs font-mono font-bold text-muted-foreground">

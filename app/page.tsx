@@ -61,7 +61,7 @@ export default function Page() {
               </h1>
 
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                RetainAI integrates with your billing and product database to analyze usage trends and flag high-risk customers before they hit cancel. Automate direct playbooks to retain them.
+                ReatainX integrates with your billing and product database to analyze usage trends and flag high-risk customers before they hit cancel. Automate direct playbooks to retain them.
               </p>
 
               {/* CTAs */}
@@ -87,7 +87,7 @@ export default function Page() {
                     <span className="h-3 w-3 rounded-full bg-destructive" />
                     <span className="h-3 w-3 rounded-full bg-yellow-400" />
                     <span className="h-3 w-3 rounded-full bg-green-500" />
-                    <span className="text-xs text-muted-foreground ml-2 font-mono">app.retainai.com/dashboard</span>
+                    <span className="text-xs text-muted-foreground ml-2 font-mono">app.ReatainX.com/dashboard</span>
                   </div>
                   <div className="px-2 py-0.5 rounded bg-muted text-[10px] font-mono text-muted-foreground">Live Feed</div>
                 </div>
@@ -192,7 +192,7 @@ export default function Page() {
                 See How Much Churn is Costing You
               </h2>
               <p className="mt-4 text-base text-muted-foreground">
-                Drag the sliders below to calculate your estimated annual revenue leakage and discover how much RetainAI can save you.
+                Drag the sliders below to calculate your estimated annual revenue leakage and discover how much ReatainX can save you.
               </p>
             </div>
 
@@ -409,19 +409,19 @@ export default function Page() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                quote: "RetainAI helped us discover that 60% of our churn risk was related to api latency spikes. Once we built an alert to contact customers during downtime, our churn plummeted by 42%.",
+                quote: "ReatainX helped us discover that 60% of our churn risk was related to api latency spikes. Once we built an alert to contact customers during downtime, our churn plummeted by 42%.",
                 author: "Sarah Jenkins",
                 role: "VP of Customer Success, DevFlow",
                 initials: "SJ"
               },
               {
-                quote: "Before RetainAI, customer success was reactively reading emails. Now, the team wakes up with a prioritised dashboard detailing exactly who needs help, and why. Best investment this year.",
+                quote: "Before ReatainX, customer success was reactively reading emails. Now, the team wakes up with a prioritised dashboard detailing exactly who needs help, and why. Best investment this year.",
                 author: "Marcus Vance",
                 role: "COO, Global Logistics SaaS",
                 initials: "MV"
               },
               {
-                quote: "Our playbooks run on autopilot. When an enterprise trial user drops active sessions, RetainAI schedules a CS sync automatically. It's like having an extra ops engineer on staff.",
+                quote: "Our playbooks run on autopilot. When an enterprise trial user drops active sessions, ReatainX schedules a CS sync automatically. It's like having an extra ops engineer on staff.",
                 author: "Leah Chen",
                 role: "Director of Operations, BizSync",
                 initials: "LC"

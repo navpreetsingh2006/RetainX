@@ -53,7 +53,7 @@ export default function LoginPage() {
             Stop guessing why customers cancel.
           </h2>
           <p className="text-indigo-200 text-sm leading-relaxed">
-            &quot;With RetainAI, our account management teams got ahead of usage drops and saved $320k in high-tier subscription contracts this quarter alone.&quot;
+            &quot;With ReatainX, our account management teams got ahead of usage drops and saved $320k in high-tier subscription contracts this quarter alone.&quot;
           </p>
           <div className="border-t border-white/20 pt-4 flex items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs flex items-center justify-center">
@@ -67,7 +67,7 @@ export default function LoginPage() {
         </div>
 
         <div className="flex justify-between items-center text-xs text-indigo-300 relative z-10">
-          <span>&copy; RetainAI Inc.</span>
+          <span>&copy; ReatainX Inc.</span>
           <span className="flex items-center gap-1">
             <ShieldCheck className="h-4 w-4 text-cyan-400" /> AES-256 Encrypted Sync
           </span>

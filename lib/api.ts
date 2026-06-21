@@ -212,3 +212,50 @@ export async function exportCustomersCsv() {
   a.click();
   window.URL.revokeObjectURL(url);
 }
+
+export async function updateProfile(payload: {
+  name: string;
+  company: string;
+  username?: string;
+  plan?: string;
+}) {
+  const data = await apiFetch<{
+    success: boolean;
+    user: User;
+    message: string;
+  }>('/api/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+  setUser(data.user);
+  return data;
+}
+
+export async function updatePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+  }>('/api/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchPrediction(
+  logins: number,
+  tickets: number,
+  invoiceDays: number
+): Promise<{ success: boolean; risk: number; source: 'flask' | 'fallback' }> {
+  return apiFetch<{
+    success: boolean;
+    risk: number;
+    source: 'flask' | 'fallback';
+  }>('/api/dashboard/predict', {
+    method: 'POST',
+    body: JSON.stringify({ logins, tickets, invoiceDays }),
+  });
+}

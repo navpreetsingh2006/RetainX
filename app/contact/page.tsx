@@ -86,7 +86,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-xs text-muted-foreground">Email sales</p>
-                      <a href="mailto:hello@retainai.com" className="font-medium hover:underline">hello@retainai.com</a>
+                      <a href="mailto:hello@ReatainX.com" className="font-medium hover:underline">hello@ReatainX.com</a>
                     </div>
                   </div>
 
@@ -155,7 +155,7 @@ export default function ContactPage() {
                     <span className="font-bold">Inquiry Sent Successfully!</span>
                   </div>
                   <p className="text-xs leading-relaxed">
-                    Thank you for contacting RetainAI. An integration lead has been assigned to your ticket and will follow up with an email draft containing benchmark reports within two hours.
+                    Thank you for contacting ReatainX. An integration lead has been assigned to your ticket and will follow up with an email draft containing benchmark reports within two hours.
                   </p>
                   <Button onClick={() => setSubmitted(false)} variant="outline" className="text-xs rounded-xl">
                     Submit Another Ticket

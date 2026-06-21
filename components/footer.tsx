@@ -128,7 +128,7 @@ export function Footer() {
 
         <div className="mt-12 border-t border-border/40 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} RetainAI Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} ReatainX Inc. All rights reserved.
           </p>
           <div className="flex space-x-6 text-xs text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>

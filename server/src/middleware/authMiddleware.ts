@@ -21,11 +21,18 @@ export const authenticate = (
 
   const token = authHeader.split(' ')[1];
 
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required',
+    });
+  }
+
   try {
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as { userId: number; email: string };
+    ) as unknown as { userId: number; email: string };
 
     req.userId = decoded.userId;
     next();
