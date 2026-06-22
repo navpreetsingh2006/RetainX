@@ -29,7 +29,7 @@ export function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white">
                 <TrendingUp className="h-4 w-4" />
               </div>
-              <span>Retain<span className="text-indigo-600 dark:text-indigo-400">AI</span></span>
+              <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
               Predict churn before it happens. Our enterprise-grade AI analytics help subscription businesses keep customers engaged and growing.
