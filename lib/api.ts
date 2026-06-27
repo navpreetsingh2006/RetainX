@@ -1,14 +1,4 @@
-const getApiUrl = () => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:5000`;
-  }
-  return 'http://localhost:5000';
-};
-
-const API_URL = getApiUrl();
+const API_URL = ""  // same-origin Next.js API routes
 
 export interface User {
   id: number;
@@ -16,6 +6,7 @@ export interface User {
   email: string;
   company: string;
   username?: string | null;
+  avatarUrl?: string | null;
   plan?: string;
 }
 
@@ -104,39 +95,17 @@ async function apiFetch<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-    });
-  } catch {
-    throw new Error(
-      `Cannot reach API at ${API_URL}. Make sure the backend is running (npm run dev:api).`
-    );
-  }
+  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
 
   let data: { message?: string };
   try {
     data = await response.json();
   } catch {
-    throw new Error(
-      response.ok
-        ? 'Invalid response from server'
-        : `Server error (${response.status}). Is the backend running on port 5000?`
-    );
+    throw new Error(response.ok ? 'Invalid response from server' : `Server error (${response.status})`);
   }
-
-  if (!response.ok) {
-    throw new Error(data.message || 'Request failed');
-  }
-
+  if (!response.ok) throw new Error(data.message || 'Request failed');
   return data as T;
 }
 
@@ -145,8 +114,6 @@ export async function registerUser(payload: {
   email: string;
   password: string;
   company: string;
-  username?: string;
-  plan?: string;
 }) {
   const data = await apiFetch<{
     success: boolean;
@@ -157,7 +124,6 @@ export async function registerUser(payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-
   setToken(data.token);
   setUser(data.user);
   return data;
@@ -173,7 +139,6 @@ export async function loginUser(email: string, password: string) {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-
   setToken(data.token);
   setUser(data.user);
   return data;
@@ -181,43 +146,14 @@ export async function loginUser(email: string, password: string) {
 
 export async function fetchDashboard(search?: string): Promise<DashboardData> {
   const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const data = await apiFetch<{ success: boolean } & DashboardData>(
-    `/api/dashboard${query}`
-  );
+  const data = await apiFetch<{ success: boolean } & DashboardData>(`/api/dashboard${query}`);
   return data;
-}
-
-export async function triggerCustomerNudge(customerId: number) {
-  return apiFetch<{ success: boolean; message: string; customer: Customer }>(
-    `/api/dashboard/customers/${customerId}/trigger`,
-    { method: 'POST' }
-  );
-}
-
-export async function exportCustomersCsv() {
-  const token = getToken();
-  const response = await fetch(`${API_URL}/api/dashboard/export`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-
-  if (!response.ok) {
-    throw new Error('Export failed');
-  }
-
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'churn-customers.csv';
-  a.click();
-  window.URL.revokeObjectURL(url);
 }
 
 export async function updateProfile(payload: {
   name: string;
   company: string;
-  username?: string;
-  plan?: string;
+  avatarUrl?: string;
 }) {
   const data = await apiFetch<{
     success: boolean;
@@ -227,7 +163,6 @@ export async function updateProfile(payload: {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
-
   setUser(data.user);
   return data;
 }
@@ -243,6 +178,25 @@ export async function updatePassword(payload: {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export async function triggerCustomerNudge(customerId: number) {
+  return apiFetch<{ success: boolean; message: string }>(`/api/customers/${customerId}/trigger`, { method: 'POST' });
+}
+
+export async function exportCustomersCsv() {
+  const token = getToken();
+  const response = await fetch('/api/dashboard/export', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) throw new Error('Export failed');
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'churn-customers.csv';
+  a.click();
+  window.URL.revokeObjectURL(url);
 }
 
 export async function fetchPrediction(

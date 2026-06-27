@@ -294,7 +294,7 @@ You can ask me:
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-sm">
               <TrendingUp className="h-4 w-4" />
             </div>
-            <span>Retain<span className="text-indigo-600 dark:text-indigo-400">AI</span></span>
+            <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
           </div>
 
           <nav className="space-y-1 px-4">
@@ -383,7 +383,7 @@ You can ask me:
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-sm">
                     <TrendingUp className="h-4 w-4" />
                   </div>
-                  <span>Retain<span className="text-indigo-600 dark:text-indigo-400">AI</span></span>
+                  <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -678,8 +678,8 @@ You can ask me:
 
                   {/* Model Active Source Badge */}
                   <span className={`text-[8px] font-mono px-2 py-0.5 border rounded-full font-bold transition-all ${modelSource === 'flask'
-                      ? "text-cyan-500 border-cyan-500/20 bg-cyan-500/10"
-                      : "text-indigo-600 dark:text-indigo-400 border-indigo-500/20 bg-indigo-500/10"
+                    ? "text-cyan-500 border-cyan-500/20 bg-cyan-500/10"
+                    : "text-indigo-600 dark:text-indigo-400 border-indigo-500/20 bg-indigo-500/10"
                     }`}>
                     {modelSource === 'flask' ? "Flask ML Model" : "Local Simulator"}
                   </span>
@@ -848,8 +848,8 @@ You can ask me:
                 >
                   <div
                     className={`max-w-[85%] p-3 rounded-2xl ${msg.sender === 'user'
-                        ? 'bg-indigo-600 text-white rounded-tr-none'
-                        : 'bg-muted border border-border rounded-tl-none text-foreground'
+                      ? 'bg-indigo-600 text-white rounded-tr-none'
+                      : 'bg-muted border border-border rounded-tl-none text-foreground'
                       }`}
                   >
                     <p className="text-[11px] whitespace-pre-wrap">{msg.text}</p>
@@ -871,9 +871,9 @@ You can ask me:
             {/* Predefined prompts */}
             <div className="px-4 py-2 border-t border-border/40 bg-muted/20 flex flex-wrap gap-1.5">
               {[
-                { label: "🔍 Summarize Risk", prompt: "Summarize the customer churn risks." },
-                { label: "⚠️ Critical Targets", prompt: "Identify the accounts at highest risk." },
-                { label: "📊 Financials", prompt: "What are my monitored MRR stats?" },
+                { label: "Summarize Risk", prompt: "Summarize the customer churn risks." },
+                { label: "Critical Targets", prompt: "Identify the accounts at highest risk." },
+                { label: "Financials", prompt: "What are all my monitored MRR stats?" },
               ].map((chip, idx) => (
                 <button
                   key={idx}
