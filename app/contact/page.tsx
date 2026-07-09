@@ -4,7 +4,7 @@ import * as React from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import "@/app/globals.css"
+// import "@/app/globals.css"
 import { Mail, Phone, MapPin, Clock, CheckCircle2, AlertCircle } from "lucide-react"
 import { submitContact } from "@/lib/api"
 
