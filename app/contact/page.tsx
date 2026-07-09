@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import "@/app/globals.css"
 import { Mail, Phone, MapPin, Clock, CheckCircle2, AlertCircle } from "lucide-react"
+import { submitContact } from "@/lib/api"
 
 export default function ContactPage() {
   // Form State
@@ -20,10 +21,9 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = React.useState(false)
   const [error, setError] = React.useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Client-side validations
     if (!name || !email || !message) {
       setError("Please fill out all required fields.")
       return
@@ -32,18 +32,19 @@ export default function ContactPage() {
     setLoading(true)
     setError("")
 
-    // Mock API call
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await submitContact({ name, email, company, mrr, message })
       setSubmitted(true)
-
-      // Clear inputs
       setName("")
       setEmail("")
       setCompany("")
       setMrr("")
       setMessage("")
-    }, 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message. Please try again.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

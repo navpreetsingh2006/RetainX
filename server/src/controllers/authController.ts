@@ -180,6 +180,8 @@ export const login = async (
         name: user.name,
         email: user.email,
         company: user.company,
+        username: user.username,
+        plan: user.plan,
       },
     });
   } catch (error) {

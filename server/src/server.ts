@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.ts';
 import dashboardRoutes from './routes/dashboardRoutes.ts';
+import publicRoutes from './routes/publicRoutes.ts';
 
 dotenv.config();
 const app = express();
@@ -43,6 +44,7 @@ app.get('/api', (_req, res) => {
 });
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', publicRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

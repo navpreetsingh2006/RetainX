@@ -45,7 +45,7 @@ export default function LoginPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-indigo-950">
             <TrendingUp className="h-4 w-4" />
           </div>
-          <span>Retain<span className="text-cyan-400">AI</span></span>
+          <span>Retain<span className="text-cyan-400">X</span></span>
         </Link>
 
         <div className="space-y-6 relative z-10 max-w-sm">
@@ -57,11 +57,11 @@ export default function LoginPage() {
           </p>
           <div className="border-t border-white/20 pt-4 flex items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-cyan-500/20 text-cyan-300 font-bold text-xs flex items-center justify-center">
-              CS
+              NS
             </div>
             <div>
-              <p className="text-xs font-bold">Christian Smith</p>
-              <p className="text-[10px] text-indigo-300">Director of Ops, DevFlow</p>
+              <p className="text-xs font-bold">N.S</p>
+              <p className="text-[10px] text-indigo-300">CEO,CODSKETCH</p>
             </div>
           </div>
         </div>

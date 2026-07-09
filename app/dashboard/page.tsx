@@ -23,27 +23,111 @@ import {
   Loader2,
   Menu,
   X,
-  Bot,
-  Send,
-  User
+  RefreshCw,
+  DollarSign,
+  Activity,
+  Zap,
+  Download,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   fetchDashboard,
   triggerCustomerNudge,
   exportCustomersCsv,
+  fetchPrediction,
   clearToken,
   getToken,
-  fetchPrediction,
   type DashboardData,
   type Customer,
 } from "@/lib/api"
+
+const NAV_ITEMS = [
+  { label: "Overview", href: "/dashboard", icon: BarChart3 },
+  { label: "Customers", href: "/dashboard/customers", icon: Users },
+  { label: "Playbooks", href: "/dashboard/playbooks", icon: GitBranch },
+  { label: "ML Sandbox", href: "/dashboard/sandbox", icon: Sparkles },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings },
+]
+
+function getRiskColor(risk: number) {
+  if (risk >= 70) return "text-destructive border-destructive/20 bg-destructive/10"
+  if (risk >= 45) return "text-yellow-600 dark:text-yellow-400 border-yellow-500/20 bg-yellow-500/10"
+  return "text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
+}
+
+function getRiskBarColor(risk: number) {
+  if (risk >= 70) return "bg-destructive"
+  if (risk >= 45) return "bg-yellow-500"
+  return "bg-emerald-500"
+}
+
+function getSuggestedPlaybook(risk: number) {
+  if (risk >= 70) return "Urgent CSM outreach + 20% retention discount"
+  if (risk >= 45) return "Automated Value Review email sequence"
+  return "No urgent playbooks. Add to monthly newsletter."
+}
+
+function CustomerCard({
+  customer,
+  onNudge,
+  loading,
+}: {
+  customer: Customer
+  onNudge: () => void
+  loading: boolean
+}) {
+  return (
+    <div className="p-4 rounded-2xl border border-border bg-card/50 hover:bg-card transition-colors space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-sm truncate">{customer.name}</p>
+          <p className="text-[11px] text-muted-foreground truncate">{customer.email}</p>
+        </div>
+        <span className={`shrink-0 px-2 py-0.5 border rounded-full font-bold text-[10px] ${getRiskColor(customer.risk)}`}>
+          {customer.risk}%
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <p className="text-muted-foreground text-[10px]">MRR</p>
+          <p className="font-mono font-bold">${customer.mrr.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground text-[10px]">Health</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${getRiskBarColor(100 - customer.health)}`}
+                style={{ width: `${customer.health}%` }}
+              />
+            </div>
+            <span className="font-mono font-bold text-[10px]">{customer.health}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <span className="text-[10px] text-muted-foreground truncate">{customer.playbook}</span>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={loading}
+          onClick={onNudge}
+          className="shrink-0 rounded-lg h-7 px-2.5 text-[10px]"
+        >
+          {loading ? "..." : "Nudge"}
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const router = useRouter()
   const { setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
+  const [sidebarOpen, setSidebarOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState("")
   const [search, setSearch] = React.useState("")
   const [searchDebounced, setSearchDebounced] = React.useState("")
@@ -51,43 +135,17 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = React.useState<number | null>(null)
   const [exporting, setExporting] = React.useState(false)
 
-  // Layout & Dropdown states
-  const [dropdownOpen, setDropdownOpen] = React.useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
-
-  // ML Sandbox Simulation inputs
   const [simLogins, setSimLogins] = React.useState(15)
   const [simTickets, setSimTickets] = React.useState(2)
   const [simInvoiceDays, setSimInvoiceDays] = React.useState(5)
-
-  // ML Sandbox API results
   const [simRisk, setSimRisk] = React.useState(40)
-  const [modelSource, setModelSource] = React.useState<'flask' | 'fallback'>('fallback')
   const [predicting, setPredicting] = React.useState(false)
+  const [predictionSource, setPredictionSource] = React.useState<"flask" | "fallback">("fallback")
 
-  // Chatbot states
-  const [chatOpen, setChatOpen] = React.useState(false)
-  const [messages, setMessages] = React.useState<Array<{ sender: 'user' | 'bot', text: string, time: string }>>([])
-  const [chatInput, setChatInput] = React.useState("")
-  const [chatTyping, setChatTyping] = React.useState(false)
+  React.useEffect(() => { setMounted(true) }, [])
 
   React.useEffect(() => {
-    setMounted(true)
-    // Seed initial bot message
-    setMessages([
-      {
-        sender: 'bot',
-        text: "Hi! I'm ReatainX Copilot. I analyze your customer database and metrics. Ask me anything about your current risk profiles, or select a prompt below!",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-    ])
-  }, [])
-
-  React.useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login")
-      return
-    }
+    if (!getToken()) router.replace("/login")
   }, [router])
 
   React.useEffect(() => {
@@ -95,9 +153,9 @@ export default function DashboardPage() {
     return () => clearTimeout(timer)
   }, [search])
 
-  const loadDashboard = React.useCallback(async () => {
+  const loadDashboard = React.useCallback(async (isRefresh = false) => {
     if (!getToken()) return
-
+    if (isRefresh) setRefreshing(true)
     try {
       setError("")
       const data = await fetchDashboard(searchDebounced || undefined)
@@ -112,135 +170,36 @@ export default function DashboardPage() {
       setError(message)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [searchDebounced, router])
 
-  React.useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
+  React.useEffect(() => { loadDashboard() }, [loadDashboard])
 
-  // Debounced API call for ML Sandbox prediction
   React.useEffect(() => {
     if (!getToken()) return
-    const delayDebounceFn = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setPredicting(true)
       try {
-        const res = await fetchPrediction(simLogins, simTickets, simInvoiceDays)
-        if (res.success) {
-          setSimRisk(res.risk)
-          setModelSource(res.source)
-        }
+        const result = await fetchPrediction(simLogins, simTickets, simInvoiceDays)
+        setSimRisk(result.risk)
+        setPredictionSource(result.source)
       } catch {
-        // Local analytical fallback
-        let base = 40
-        base -= simLogins * 1.5
-        base += simTickets * 8
-        base += simInvoiceDays * 1.2
+        let base = 40 - simLogins * 1.5 + simTickets * 8 + simInvoiceDays * 1.2
         setSimRisk(Math.max(5, Math.min(99, Math.round(base))))
-        setModelSource('fallback')
+        setPredictionSource("fallback")
       } finally {
         setPredicting(false)
       }
-    }, 250)
-
-    return () => clearTimeout(delayDebounceFn)
+    }, 400)
+    return () => clearTimeout(timer)
   }, [simLogins, simTickets, simInvoiceDays])
-
-  const triggerBotResponse = (inputText: string) => {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    setMessages((prev) => [...prev, { sender: 'user', text: inputText, time }])
-    setChatTyping(true)
-
-    setTimeout(() => {
-      const textLower = inputText.toLowerCase()
-      let reply = ""
-
-      const activeMetrics = dashboard?.metrics
-      const activeCustomers = dashboard?.customers ?? []
-
-      if (textLower.includes("risk") || textLower.includes("summarize") || textLower.includes("overall")) {
-        const highRisk = activeCustomers.filter(c => c.risk >= 70)
-        const medRisk = activeCustomers.filter(c => c.risk >= 45 && c.risk < 70)
-        reply = `ReatainX Database Summary:
-Monitored Accounts: ${activeCustomers.length}
-Average Churn Risk: ${activeMetrics?.avgChurnRiskFormatted ?? "0%"}
-Total Monitored MRR: ${activeMetrics?.monitoredMrrFormatted ?? "$0"}
-
-Risk Segments:
-🔴 High Risk (>=70%): ${highRisk.length} (${highRisk.map(c => c.name).join(", ") || "None"})
-🟡 Med Risk (45-69%): ${medRisk.length} (${medRisk.map(c => c.name).join(", ") || "None"})
-🟢 Low Risk (<45%): ${activeCustomers.filter(c => c.risk < 45).length}
-
-I suggest reviewing playbooks for critical high-risk accounts.`
-      } else if (textLower.includes("critical") || textLower.includes("highest") || textLower.includes("high-risk")) {
-        const highRisk = activeCustomers.filter(c => c.risk >= 70)
-        if (highRisk.length === 0) {
-          reply = "No critical accounts found in the database (all are below 70% risk). Great job!"
-        } else {
-          reply = `Critical Retention Targets (Risk >= 70%):
-${highRisk.map(c => `• ${c.name}: Risk ${c.risk}%, Health ${c.health}/100, Playbook: "${c.playbook}"`).join("\n")}
-
-You can initiate a Slack CSM nudge for these targets from the accounts panel.`
-        }
-      } else if (textLower.includes("mrr") || textLower.includes("revenue") || textLower.includes("billing") || textLower.includes("money")) {
-        reply = `Revenue Retention Intelligence:
-• Monitored MRR: ${activeMetrics?.monitoredMrrFormatted ?? "$0"} (Trend: ${activeMetrics?.mrrTrend ?? ""})
-• Recovered Revenue: ${activeMetrics?.recoveredRevenueFormatted ?? "$0"} (Trend: ${activeMetrics?.recoveredTrend ?? ""})
-• Active Playbooks: ${activeMetrics?.activePlaybooksFormatted ?? "0"}`
-      } else {
-        // Check for specific customer name
-        const found = activeCustomers.find(c => textLower.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(textLower))
-        if (found) {
-          reply = `Account File: ${found.name}
-• Email: ${found.email}
-• Churn Risk: ${found.risk}%
-• Health Score: ${found.health}/100
-• MRR: $${found.mrr.toLocaleString()}
-• Playbook: "${found.playbook}"
-
-${found.risk >= 70 ? "⚠️ Highly critical! CSM outreach is recommended." : "✅ Account status is stable."}`
-        } else {
-          reply = `I am ReatainX Copilot, synced with your Postgres datastore. 
-
-You can ask me:
-1. "Analyze overall risk" for a summary segment.
-2. "Identify critical accounts" to list highest targets.
-3. "Summarize MRR metrics" for financial trend values.
-4. Or mention a customer's name (e.g. "Acme" or "DevFlow") to view their detailed log card.`
-        }
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        { sender: 'bot', text: reply, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-      ])
-      setChatTyping(false)
-    }, 600)
-  }
-
-  const getRiskColor = (risk: number) => {
-    if (risk >= 70) return "text-destructive border-destructive/20 bg-destructive/10"
-    if (risk >= 45) return "text-yellow-600 dark:text-yellow-400 border-yellow-500/20 bg-yellow-500/10"
-    return "text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
-  }
-
-  const getRiskBarColor = (risk: number) => {
-    if (risk >= 70) return "bg-destructive"
-    if (risk >= 45) return "bg-yellow-500"
-    return "bg-emerald-500"
-  }
-
-  const getSuggestedPlaybook = (risk: number) => {
-    if (risk >= 70) return "Urgent CSM outreach + 20% Retention discount"
-    if (risk >= 45) return "Automated Value Review email sequence"
-    return "No urgent playbooks. Add to standard monthly newsletter."
-  }
 
   const handleTriggerNudge = async (customer: Customer) => {
     setActionLoading(customer.id)
     try {
       await triggerCustomerNudge(customer.id)
-      await loadDashboard()
+      await loadDashboard(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to trigger nudge")
     } finally {
@@ -270,10 +229,13 @@ You can ask me:
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-sm text-muted-foreground">Loading your churn console...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-indigo-50/30 dark:to-indigo-950/20">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-3xl border border-border bg-card shadow-lg">
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+          <div className="text-center">
+            <p className="font-semibold">Loading Churn Console</p>
+            <p className="text-sm text-muted-foreground mt-1">Fetching live data from database...</p>
+          </div>
         </div>
       </div>
     )
@@ -284,296 +246,294 @@ You can ask me:
   const alerts = dashboard?.alerts ?? []
   const integrations = dashboard?.integrations ?? []
 
-  return (
-    <div className="min-h-screen bg-background text-foreground flex transition-colors duration-300 relative">
+  const metricCards = [
+    {
+      label: "Monitored MRR",
+      value: metrics?.monitoredMrrFormatted ?? "$0",
+      trend: metrics?.mrrTrend ?? "",
+      isUp: true,
+      icon: DollarSign,
+      gradient: "from-emerald-500/10 to-emerald-600/5",
+      iconColor: "text-emerald-600",
+    },
+    {
+      label: "Avg Churn Risk",
+      value: metrics?.avgChurnRiskFormatted ?? "0%",
+      trend: metrics?.churnTrend ?? "",
+      isUp: false,
+      icon: Activity,
+      gradient: "from-destructive/10 to-destructive/5",
+      iconColor: "text-destructive",
+    },
+    {
+      label: "Recovered Revenue",
+      value: metrics?.recoveredRevenueFormatted ?? "$0",
+      trend: metrics?.recoveredTrend ?? "",
+      isUp: true,
+      icon: TrendingUp,
+      gradient: "from-indigo-500/10 to-violet-600/5",
+      iconColor: "text-indigo-600",
+    },
+    {
+      label: "Active Playbooks",
+      value: metrics?.activePlaybooksFormatted ?? "0",
+      trend: "Autopilot enabled",
+      isUp: true,
+      icon: Zap,
+      gradient: "from-cyan-500/10 to-cyan-600/5",
+      iconColor: "text-cyan-600",
+      detail: true,
+    },
+  ]
 
-      {/* DESKTOP SIDEBAR */}
-      <aside className="w-64 border-r border-border/40 bg-card hidden md:flex flex-col justify-between py-6">
-        <div className="space-y-8">
-          <div className="px-6 flex items-center gap-2 font-bold text-xl tracking-tight">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-sm">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
+  const SidebarContent = () => (
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center gap-2.5 font-bold text-lg tracking-tight">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-md">
+            <TrendingUp className="h-4 w-4" />
           </div>
+          <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
+        </div>
 
-          <nav className="space-y-1 px-4">
-            {[
-              { label: "Overview Insights", icon: <BarChart3 className="h-4 w-4" />, active: true, href: "/dashboard" },
-              { label: "Customer Health", icon: <Users className="h-4 w-4" />, href: "/dashboard" },
-              { label: "Automations & Playbooks", icon: <GitBranch className="h-4 w-4" />, href: "/dashboard" },
-              { label: "ML Sandbox", icon: <Sparkles className="h-4 w-4" />, href: "/dashboard" },
-              { label: "Settings & Profile", icon: <Settings className="h-4 w-4" />, href: "/dashboard/profile" },
-            ].map((item, idx) => (
-              <Link key={idx} href={item.href} className="block">
-                <button
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${item.active
-                    ? "bg-indigo-600 text-white"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                    }`}
+        <nav className="space-y-1">
+          {NAV_ITEMS.map((item) => {
+            const isActive = item.href === "/dashboard"
+            return (
+              <Link key={item.label} href={item.href} onClick={() => setSidebarOpen(false)}>
+                <span
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                    isActive
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  }`}
                 >
-                  {item.icon}
+                  <item.icon className="h-4 w-4" />
                   {item.label}
-                </button>
+                </span>
               </Link>
-            ))}
-          </nav>
-        </div>
+            )
+          })}
+        </nav>
+      </div>
 
-        {/* Desktop Profile Area with Dropdown Menu */}
-        <div className="px-4 relative">
-          {dropdownOpen && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 bg-card border border-border rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-              <div className="px-3 py-1.5 border-b border-border/40 text-[9px] text-muted-foreground font-semibold">
-                Account Settings
-              </div>
-              <Link href="/dashboard/profile" className="block w-full">
-                <button
-                  onClick={() => setDropdownOpen(false)}
-                  className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                >
-                  <User className="h-3.5 w-3.5 text-indigo-500" />
-                  <span>My Profile</span>
-                </button>
-              </Link>
-              <Link href="/pricing" className="block w-full">
-                <button
-                  onClick={() => setDropdownOpen(false)}
-                  className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-cyan-500" />
-                  <span>Upgrade Subscription</span>
-                </button>
-              </Link>
-              <hr className="border-border/40 my-1.5" />
-              <button
-                onClick={handleSignOut}
-                className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Sign Out</span>
-              </button>
+      <div className="space-y-3">
+        <div className="p-3 border border-border rounded-2xl bg-gradient-to-br from-muted/30 to-muted/10">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white font-bold text-sm flex items-center justify-center shadow-sm">
+              {userInitials}
             </div>
-          )}
-
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full p-3 border border-border rounded-2xl bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-between text-left focus:outline-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
-                {userInitials}
-              </div>
-              <div className="text-[10px] min-w-0 truncate">
-                <p className="font-bold truncate">{dashboard?.user.name}</p>
-                <p className="text-muted-foreground truncate">{dashboard?.user.email}</p>
-              </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm truncate">{dashboard?.user.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{dashboard?.user.email}</p>
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
+                {(dashboard?.user.plan || "trial").toUpperCase()} Plan
+              </p>
             </div>
-          </button>
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          onClick={handleSignOut}
+          className="w-full justify-start text-sm rounded-xl text-muted-foreground hover:text-destructive gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
+    </>
+  )
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-indigo-50/20 dark:to-indigo-950/10 text-foreground flex">
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-56 border-r border-border/50 bg-card/80 backdrop-blur-sm flex-col justify-between p-4 shrink-0 sticky top-0 h-screen overflow-y-auto">
+        <SidebarContent />
       </aside>
 
-      {/* MOBILE DRAWER NAVIGATION */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex md:hidden bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-64 bg-card border-r border-border p-6 flex flex-col justify-between animate-in slide-in-from-left duration-250">
-            <div className="space-y-8">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-lg tracking-tight">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-sm">
-                    <TrendingUp className="h-4 w-4" />
-                  </div>
-                  <span>Retain<span className="text-indigo-600 dark:text-indigo-400">X</span></span>
-                </div>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-1 rounded-lg border border-border hover:bg-muted"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <nav className="space-y-1">
-                {[
-                  { label: "Overview Insights", icon: <BarChart3 className="h-4 w-4" />, active: true, href: "/dashboard" },
-                  { label: "Customer Health", icon: <Users className="h-4 w-4" />, href: "/dashboard" },
-                  { label: "Automations & Playbooks", icon: <GitBranch className="h-4 w-4" />, href: "/dashboard" },
-                  { label: "ML Sandbox", icon: <Sparkles className="h-4 w-4" />, href: "/dashboard" },
-                  { label: "Settings & Profile", icon: <Settings className="h-4 w-4" />, href: "/dashboard/profile" },
-                ].map((item, idx) => (
-                  <Link key={idx} href={item.href} onClick={() => setMobileMenuOpen(false)}>
-                    <button
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-xs font-semibold rounded-xl transition-colors mb-1 ${item.active
-                        ? "bg-indigo-600 text-white"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                        }`}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </button>
-                  </Link>
-                ))}
-              </nav>
-            </div>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  setDropdownOpen(true)
-                }}
-                className="w-full p-3 border border-border rounded-2xl bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-between text-left"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white font-bold text-xs flex items-center justify-center">
-                    {userInitials}
-                  </div>
-                  <div className="text-[10px] truncate max-w-[120px]">
-                    <p className="font-bold truncate">{dashboard?.user.name}</p>
-                    <p className="text-muted-foreground truncate">{dashboard?.user.email}</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-          <div className="flex-grow" onClick={() => setMobileMenuOpen(false)} />
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative w-60 max-w-[85vw] bg-card border-r border-border flex flex-col justify-between p-4 animate-in slide-in-from-left duration-200">
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <SidebarContent />
+          </aside>
         </div>
       )}
 
-      {/* MAIN CONTAINER */}
-      <div className="flex-grow flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="sticky top-0 z-40 border-b border-border/40 bg-gradient-to-r from-card/95 via-card/90 to-indigo-50/30 dark:to-indigo-950/20 backdrop-blur-xl shadow-sm">
+          <div className="h-[1px] bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+          <div className="h-16 sm:h-[72px] px-4 sm:px-6 lg:px-8 flex items-center gap-4 sm:gap-6">
 
-        {/* HEADER */}
-        <header className="h-16 border-b border-border/40 bg-card/50 backdrop-blur-sm px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-grow md:max-w-md">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 rounded-xl border border-border md:hidden bg-muted/30 hover:bg-muted"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search customer account, domains, playbooks..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="text-xs w-full bg-transparent border-0 focus:outline-none focus:ring-0 text-foreground"
-            />
-          </div>
-
-          <div className="flex items-center gap-4">
+            {/* Mobile menu button */}
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-xl w-8 h-8"
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="lg:hidden shrink-0 rounded-xl h-10 w-10"
+              onClick={() => setSidebarOpen(true)}
             >
-              {mounted && resolvedTheme === "dark" ? (
-                <Sun className="h-4 w-4 text-yellow-400" />
-              ) : (
-                <Moon className="h-4 w-4 text-indigo-600" />
-              )}
+              <Menu className="h-5 w-5" />
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative rounded-xl w-8 h-8">
-              <Bell className="h-4 w-4" />
-              {alerts.length > 0 && (
-                <span className="absolute top-1 right-1 h-1.5 w-1.5 bg-destructive rounded-full" />
-              )}
-            </Button>
+            {/* Logo - visible on mobile when sidebar is hidden */}
+            <div className="lg:hidden flex items-center gap-2 shrink-0 mr-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-sm">
+                <TrendingUp className="h-3.5 w-3.5" />
+              </div>
+              <span className="font-bold text-sm tracking-tight hidden sm:inline">
+                Retain<span className="text-indigo-600 dark:text-indigo-400">AI</span>
+              </span>
+            </div>
 
-            <span className="h-4 w-px bg-border/40" />
+            {/* Search bar - expanded */}
+            <div className="flex items-center gap-2.5 flex-1 min-w-0 max-w-2xl bg-muted/30 hover:bg-muted/50 focus-within:bg-muted/50 focus-within:ring-2 focus-within:ring-indigo-500/20 border border-border/40 rounded-xl px-4 py-2.5 transition-all duration-200">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input
+                type="text"
+                placeholder="Search customers, playbooks..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="text-sm w-full bg-transparent border-0 focus:outline-none text-foreground placeholder:text-muted-foreground"
+              />
+              <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground bg-background/80 border border-border/60 rounded shrink-0">
+                ⌘K
+              </kbd>
+            </div>
 
-            {/* Header Dropdown (especially useful for Mobile, Tablet, iPad screens) */}
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white font-bold text-xs flex items-center justify-center focus:outline-none hover:opacity-85 transition-opacity"
+            {/* Actions - properly spaced */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl h-9 w-9 sm:h-10 sm:w-10 hover:bg-muted/60 hidden sm:flex"
+                onClick={() => loadDashboard(true)}
+                disabled={refreshing}
+                title="Refresh data"
               >
-                {userInitials}
-              </button>
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
 
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-3 py-1.5 border-b border-border/40 text-[9px] text-muted-foreground font-semibold">
-                    Admin Profile
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl h-9 w-9 sm:h-10 sm:w-10 hover:bg-muted/60"
+                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                title="Toggle theme"
+              >
+                {mounted && resolvedTheme === "dark" ? (
+                  <Sun className="h-4 w-4 text-yellow-400" />
+                ) : (
+                  <Moon className="h-4 w-4 text-indigo-600" />
+                )}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-xl h-9 w-9 sm:h-10 sm:w-10 hover:bg-muted/60"
+                title="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {alerts.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 bg-destructive rounded-full ring-2 ring-card animate-pulse" />
+                )}
+              </Button>
+
+              {/* Divider */}
+              <div className="hidden sm:block h-8 w-px bg-border/60 mx-1" />
+
+              {/* Plan badge */}
+              <div className="hidden sm:flex items-center text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/15 px-3 py-1.5 rounded-lg">
+                {(dashboard?.user.plan || "trial").toUpperCase()}
+              </div>
+
+              {/* User avatar & profile */}
+              <Link href="/dashboard/profile" className="shrink-0">
+                <div className="flex items-center gap-2.5 pl-1 sm:pl-2 group cursor-pointer">
+                  <div className="relative">
+                    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center shadow-md ring-2 ring-background group-hover:ring-indigo-500/30 transition-all duration-200">
+                      {userInitials}
+                    </div>
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 bg-emerald-500 rounded-full ring-2 ring-background" />
                   </div>
-                  <Link href="/dashboard/profile" className="block w-full">
-                    <button
-                      onClick={() => setDropdownOpen(false)}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                    >
-                      <User className="h-3.5 w-3.5 text-indigo-500" />
-                      <span>My Profile</span>
-                    </button>
-                  </Link>
-                  <Link href="/pricing" className="block w-full">
-                    <button
-                      onClick={() => setDropdownOpen(false)}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                    >
-                      <Sparkles className="h-3.5 w-3.5 text-cyan-500" />
-                      <span>Pricing Plans</span>
-                    </button>
-                  </Link>
-                  <hr className="border-border/40 my-1.5" />
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+                  <div className="hidden md:block min-w-0">
+                    <p className="text-xs font-semibold truncate max-w-[120px] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      {dashboard?.user.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                      {dashboard?.user.company}
+                    </p>
+                  </div>
                 </div>
-              )}
+              </Link>
             </div>
           </div>
         </header>
 
-        {/* WORKSPACE AREA */}
-        <main className="p-4 sm:p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6 overflow-y-auto">
 
           {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-xl">
-              {error}
+            <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-xl flex items-center justify-between gap-2">
+              <span>{error}</span>
+              <button onClick={() => setError("")} className="shrink-0 p-1 hover:bg-destructive/10 rounded">
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
 
-          {/* Welcome Alert */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border border-indigo-200/50 bg-indigo-50/50 dark:border-indigo-500/20 dark:bg-indigo-950/30 rounded-2xl">
-            <div>
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                Welcome back, {dashboard?.user.name?.split(" ")[0]}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Live metrics for {dashboard?.user.company} — {customers.length} accounts monitored.
-              </p>
+          {/* Welcome banner */}
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-indigo-200/50 dark:border-indigo-500/20 bg-gradient-to-r from-indigo-50/80 via-violet-50/50 to-cyan-50/30 dark:from-indigo-950/40 dark:via-violet-950/30 dark:to-cyan-950/20 p-5 sm:p-6">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  Welcome back, {dashboard?.user.name?.split(" ")[0]}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Live metrics for <span className="font-medium text-foreground">{dashboard?.user.company}</span>
+                  {" · "}{customers.length} accounts monitored
+                </p>
+              </div>
+              <Link href="/pricing" className="shrink-0">
+                <Button className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm shadow-md shadow-indigo-500/20">
+                  Upgrade Plan
+                </Button>
+              </Link>
             </div>
-            <Link href="/pricing">
-              <Button size="sm" className="bg-indigo-600 text-white rounded-xl text-xs">Upgrade Plan</Button>
-            </Link>
           </div>
 
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: "Monitored MRR", value: metrics?.monitoredMrrFormatted ?? "$0", trend: metrics?.mrrTrend ?? "", isUp: true },
-              { label: "Average Churn Risk", value: metrics?.avgChurnRiskFormatted ?? "0%", trend: metrics?.churnTrend ?? "", isUp: false },
-              { label: "Recovered Revenue", value: metrics?.recoveredRevenueFormatted ?? "$0", trend: metrics?.recoveredTrend ?? "", isUp: true },
-              { label: "Active Playbooks", value: metrics?.activePlaybooksFormatted ?? "0", trend: "SOC2 Autopilot enabled", isUp: true, detail: true }
-            ].map((metric, idx) => (
-              <div key={idx} className="bg-card border border-border p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                <span className="text-xs font-semibold text-muted-foreground">{metric.label}</span>
-                <div className="flex items-baseline justify-between mt-2">
-                  <span className="text-2xl font-extrabold tracking-tight font-mono">{metric.value}</span>
+          {/* Metrics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {metricCards.map((metric) => (
+              <div
+                key={metric.label}
+                className={`relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br ${metric.gradient} p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground leading-tight">
+                    {metric.label}
+                  </span>
+                  <metric.icon className={`h-4 w-4 ${metric.iconColor} opacity-80`} />
+                </div>
+                <p className="text-xl sm:text-2xl font-extrabold tracking-tight font-mono">{metric.value}</p>
+                <div className="mt-2">
                   {metric.detail ? (
-                    <span className="text-[10px] text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">Autopilot</span>
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      Autopilot
+                    </span>
                   ) : (
-                    <span className={`text-[10px] font-bold flex items-center ${metric.isUp ? "text-emerald-500" : "text-destructive"}`}>
-                      {metric.isUp ? <ArrowUpRight className="h-3 w-3 mr-0.5" /> : <ArrowDownRight className="h-3 w-3 mr-0.5" />}
+                    <span className={`text-[10px] font-bold flex items-center ${metric.isUp ? "text-emerald-600" : "text-destructive"}`}>
+                      {metric.isUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                       {metric.trend}
                     </span>
                   )}
@@ -582,78 +542,102 @@ You can ask me:
             ))}
           </div>
 
-          {/* Core Content Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Main grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 sm:gap-6">
 
-            {/* Customer targets table */}
-            <div className="lg:col-span-8 bg-card border border-border rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
-              <div className="flex justify-between items-center">
+            {/* Customers */}
+            <div className="xl:col-span-8 rounded-2xl sm:rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="p-4 sm:p-6 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold">High-Risk Retention Targets</h3>
-                  <p className="text-[10px] text-muted-foreground">Customers who triggered risk flags in the last 48 hours.</p>
+                  <h3 className="font-bold text-base">High-Risk Retention Targets</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {customers.length} customers · sorted by churn risk
+                  </p>
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleExport}
                   disabled={exporting}
-                  className="px-2.5 py-1 border rounded bg-muted text-[10px] font-mono text-muted-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+                  className="rounded-xl text-xs gap-1.5 self-start sm:self-auto"
                 >
+                  <Download className="h-3.5 w-3.5" />
                   {exporting ? "Exporting..." : "CSV Export"}
-                </button>
+                </Button>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+              {/* Mobile cards */}
+              <div className="lg:hidden p-4 space-y-3">
+                {customers.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">
+                    {search ? "No customers match your search." : "No customers found."}
+                  </p>
+                ) : (
+                  customers.map((c) => (
+                    <CustomerCard
+                      key={c.id}
+                      customer={c}
+                      loading={actionLoading === c.id}
+                      onNudge={() => handleTriggerNudge(c)}
+                    />
+                  ))
+                )}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border/40 text-muted-foreground font-semibold">
-                      <th className="pb-3">Account Name</th>
-                      <th className="pb-3 text-center">Churn Risk</th>
-                      <th className="pb-3 text-right">MRR</th>
-                      <th className="pb-3 text-center">Health Index</th>
-                      <th className="pb-3">Assigned Playbook</th>
-                      <th className="pb-3 text-right">Action</th>
+                    <tr className="border-b border-border/40 text-muted-foreground text-xs font-semibold">
+                      <th className="px-6 py-3 text-left">Account</th>
+                      <th className="px-4 py-3 text-center">Risk</th>
+                      <th className="px-4 py-3 text-right">MRR</th>
+                      <th className="px-4 py-3 text-center">Health</th>
+                      <th className="px-4 py-3 text-left">Playbook</th>
+                      <th className="px-6 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {customers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                           {search ? "No customers match your search." : "No customers found."}
                         </td>
                       </tr>
                     ) : (
                       customers.map((c) => (
-                        <tr key={c.id} className="border-b border-border/20 last:border-0 hover:bg-muted/10 transition-colors">
-                          <td className="py-3.5">
-                            <div className="font-semibold">{c.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{c.email}</div>
+                        <tr key={c.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-6 py-4">
+                            <p className="font-semibold">{c.name}</p>
+                            <p className="text-xs text-muted-foreground">{c.email}</p>
                           </td>
-                          <td className="py-3.5 text-center">
-                            <span className={`px-2 py-0.5 border rounded-full font-bold text-[9px] ${getRiskColor(c.risk)}`}>
+                          <td className="px-4 py-4 text-center">
+                            <span className={`px-2.5 py-1 border rounded-full font-bold text-xs ${getRiskColor(c.risk)}`}>
                               {c.risk}%
                             </span>
                           </td>
-                          <td className="py-3.5 text-right font-mono font-bold">${c.mrr.toLocaleString()}</td>
-                          <td className="py-3.5 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <td className="px-4 py-4 text-right font-mono font-bold">${c.mrr.toLocaleString()}</td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full ${c.health < 40 ? "bg-destructive" : c.health < 70 ? "bg-yellow-500" : "bg-emerald-500"}`}
                                   style={{ width: `${c.health}%` }}
                                 />
                               </div>
-                              <span className="font-bold font-mono text-[10px]">{c.health}</span>
+                              <span className="font-mono font-bold text-xs w-6">{c.health}</span>
                             </div>
                           </td>
-                          <td className="py-3.5 text-muted-foreground text-[10px]">{c.playbook}</td>
-                          <td className="py-3.5 text-right">
+                          <td className="px-4 py-4 text-xs text-muted-foreground max-w-[140px] truncate">{c.playbook}</td>
+                          <td className="px-6 py-4 text-right">
                             <Button
                               size="sm"
                               variant="outline"
                               disabled={actionLoading === c.id}
                               onClick={() => handleTriggerNudge(c)}
-                              className="rounded-lg h-7 px-2.5 text-[10px] border-border hover:bg-muted"
+                              className="rounded-lg text-xs"
                             >
-                              {actionLoading === c.id ? "..." : "Trigger Nudge"}
+                              {actionLoading === c.id ? "Sending..." : "Trigger Nudge"}
                             </Button>
                           </td>
                         </tr>
@@ -664,257 +648,117 @@ You can ask me:
               </div>
             </div>
 
-            {/* Sandbox simulation component */}
-            <div className="lg:col-span-4 bg-card border border-border rounded-2xl shadow-sm p-5 sm:p-6 flex flex-col justify-between space-y-6">
-              <div>
-                <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <div>
-                      <h3 className="text-sm font-bold">ML Model Risk Sandbox</h3>
-                      <p className="text-[9px] text-muted-foreground">Simulate customer behavior to estimate churn score.</p>
-                    </div>
-                  </div>
-
-                  {/* Model Active Source Badge */}
-                  <span className={`text-[8px] font-mono px-2 py-0.5 border rounded-full font-bold transition-all ${modelSource === 'flask'
-                    ? "text-cyan-500 border-cyan-500/20 bg-cyan-500/10"
-                    : "text-indigo-600 dark:text-indigo-400 border-indigo-500/20 bg-indigo-500/10"
-                    }`}>
-                    {modelSource === 'flask' ? "Flask ML Model" : "Local Simulator"}
-                  </span>
+            {/* ML Sandbox */}
+            <div className="xl:col-span-4 rounded-2xl sm:rounded-3xl border border-border bg-card shadow-sm p-5 sm:p-6 flex flex-col gap-5">
+              <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+                <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <label>Weekly Logins</label>
-                      <span className="font-mono text-indigo-600 dark:text-indigo-400">{simLogins} logins</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="40"
-                      value={simLogins}
-                      onChange={(e) => setSimLogins(Number(e.target.value))}
-                      className="w-full h-1 bg-muted rounded appearance-none cursor-pointer accent-indigo-600"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <label>Open Tickets (High Priority)</label>
-                      <span className="font-mono text-indigo-600 dark:text-indigo-400">{simTickets} tickets</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="8"
-                      value={simTickets}
-                      onChange={(e) => setSimTickets(Number(e.target.value))}
-                      className="w-full h-1 bg-muted rounded appearance-none cursor-pointer accent-indigo-600"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-semibold">
-                      <label>Overdue Invoice Days</label>
-                      <span className="font-mono text-indigo-600 dark:text-indigo-400">{simInvoiceDays} days</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="30"
-                      value={simInvoiceDays}
-                      onChange={(e) => setSimInvoiceDays(Number(e.target.value))}
-                      className="w-full h-1 bg-muted rounded appearance-none cursor-pointer accent-indigo-600"
-                    />
-                  </div>
+                <div>
+                  <h3 className="font-bold text-sm">ML Risk Sandbox</h3>
+                  <p className="text-[11px] text-muted-foreground">Live churn prediction model</p>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-border/40 space-y-4 relative">
-                {predicting && (
-                  <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl">
-                    <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+              <div className="space-y-5">
+                {[
+                  { label: "Weekly Logins", value: simLogins, max: 40, setter: setSimLogins, unit: "logins" },
+                  { label: "Open Tickets", value: simTickets, max: 8, setter: setSimTickets, unit: "tickets" },
+                  { label: "Overdue Invoice Days", value: simInvoiceDays, max: 30, setter: setSimInvoiceDays, unit: "days" },
+                ].map((slider) => (
+                  <div key={slider.label} className="space-y-2">
+                    <div className="flex justify-between text-xs font-semibold">
+                      <label>{slider.label}</label>
+                      <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                        {slider.value} {slider.unit}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={slider.max}
+                      value={slider.value}
+                      onChange={(e) => slider.setter(Number(e.target.value))}
+                      className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-indigo-600"
+                    />
                   </div>
-                )}
+                ))}
+              </div>
 
+              <div className="mt-auto pt-4 border-t border-border/50 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-semibold text-muted-foreground">Estimated Churn Likelihood</span>
-                  <span className={`text-base font-extrabold font-mono px-2 py-0.5 border rounded-full transition-colors ${getRiskColor(simRisk)}`}>
-                    {simRisk}%
-                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground">Churn Likelihood</span>
+                  <div className="flex items-center gap-2">
+                    {predicting && <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />}
+                    <span className={`text-lg font-extrabold font-mono px-3 py-1 border rounded-full ${getRiskColor(simRisk)}`}>
+                      {simRisk}%
+                    </span>
+                  </div>
                 </div>
-
-                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${getRiskBarColor(simRisk)}`}
+                    className={`h-full rounded-full transition-all duration-500 ${getRiskBarColor(simRisk)}`}
                     style={{ width: `${simRisk}%` }}
                   />
                 </div>
-
-                <div className="p-3 bg-muted/20 border border-border rounded-xl space-y-1">
-                  <p className="text-[9px] uppercase font-bold text-muted-foreground">Suggested Retention Playbook</p>
-                  <p className="text-[11px] font-semibold">{getSuggestedPlaybook(simRisk)}</p>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Source: {predictionSource === "flask" ? "ML Model API" : "Heuristic Engine"}
+                </p>
+                <div className="p-4 bg-gradient-to-br from-muted/40 to-muted/10 border border-border rounded-xl">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Suggested Playbook</p>
+                  <p className="text-xs font-semibold leading-relaxed">{getSuggestedPlaybook(simRisk)}</p>
                 </div>
               </div>
             </div>
-
           </div>
 
-          {/* Secondary Stats widgets */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Retention feed log */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
-              <h3 className="text-sm font-bold flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /> Retention Feed Alerts
+          {/* Alerts & Integrations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+            <div className="rounded-2xl sm:rounded-3xl border border-border bg-card shadow-sm p-5 sm:p-6">
+              <h3 className="font-bold text-sm flex items-center gap-2 mb-4">
+                <AlertTriangle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                Retention Feed
+                <span className="ml-auto text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {alerts.length} alerts
+                </span>
               </h3>
-              <div className="space-y-3 text-xs">
+              <div className="space-y-2.5 max-h-64 overflow-y-auto">
                 {alerts.length === 0 ? (
-                  <p className="text-muted-foreground text-[11px]">No alerts yet.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">No alerts yet.</p>
                 ) : (
                   alerts.map((log) => (
-                    <div key={log.id} className="flex justify-between items-start gap-4 p-2.5 rounded-lg bg-muted/20 border border-border/20">
-                      <p className={`text-[11px] ${log.color}`}>{log.text}</p>
-                      <span className="text-[9px] text-muted-foreground flex-shrink-0 mt-0.5">{log.time}</span>
+                    <div key={log.id} className="flex justify-between items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border/30 hover:bg-muted/50 transition-colors">
+                      <p className={`text-xs leading-relaxed ${log.color}`}>{log.text}</p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{log.time}</span>
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            {/* Connected Sync Pipelines */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm p-5 sm:p-6 space-y-4 flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-bold">Connected Pipelines</h3>
-                <p className="text-[10px] text-muted-foreground">Your billing engine and event datastores connected to our ML server.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-2xl sm:rounded-3xl border border-border bg-card shadow-sm p-5 sm:p-6 flex flex-col">
+              <h3 className="font-bold text-sm mb-1">Connected Pipelines</h3>
+              <p className="text-xs text-muted-foreground mb-4">Billing & event datastores synced to ML server</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 flex-1">
                 {integrations.map((sync) => (
-                  <div key={sync.id} className="p-3 border border-border rounded-xl bg-muted/20">
-                    <span className="text-xs font-bold block">{sync.name}</span>
-                    <span className="text-[9px] font-mono text-emerald-500 font-bold mt-1 block">● {sync.status}</span>
+                  <div key={sync.id} className="p-3 sm:p-4 border border-border rounded-xl bg-muted/20 text-center hover:bg-muted/40 transition-colors">
+                    <span className="text-xs sm:text-sm font-bold block">{sync.name}</span>
+                    <span className="text-[10px] font-mono text-emerald-600 font-bold mt-1.5 block">
+                      ● {sync.status}
+                    </span>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between items-center text-[10px] text-muted-foreground pt-2">
-                <span className="flex items-center gap-1"><ShieldCheck className="h-4 w-4 text-emerald-500" /> SOC2 Secure</span>
-                <span>Last Sync: {dashboard?.lastSync ?? "—"}</span>
+              <div className="flex justify-between items-center text-xs text-muted-foreground pt-4 mt-4 border-t border-border/50">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" /> SOC2 Secure
+                </span>
+                <span>Last sync: {dashboard?.lastSync ?? "—"}</span>
               </div>
             </div>
-
           </div>
-
         </main>
       </div>
-
-      {/* AI Chatbot Floating Trigger & Box */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-        {!chatOpen ? (
-          <button
-            onClick={() => setChatOpen(true)}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-all duration-200"
-          >
-            <Bot className="h-6 w-6" />
-          </button>
-        ) : (
-          <div className="w-[calc(100vw-32px)] sm:w-[380px] md:w-[400px] h-[500px] bg-card/95 border border-border/80 rounded-2xl shadow-2xl flex flex-col justify-between overflow-hidden backdrop-blur-md animate-in slide-in-from-bottom-5 duration-200">
-
-            {/* Header */}
-            <div className="p-4 bg-gradient-to-r from-indigo-950 via-indigo-900 to-violet-950 text-white flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-cyan-400" />
-                <div>
-                  <h4 className="text-xs font-bold">ReatainX Copilot</h4>
-                  <p className="text-[9px] text-indigo-300">Context-Aware AI Assistant</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setChatOpen(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-white/80 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Messages body */}
-            <div className="flex-grow p-4 overflow-y-auto space-y-3 text-xs leading-relaxed max-h-[340px]">
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[85%] p-3 rounded-2xl ${msg.sender === 'user'
-                      ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'bg-muted border border-border rounded-tl-none text-foreground'
-                      }`}
-                  >
-                    <p className="text-[11px] whitespace-pre-wrap">{msg.text}</p>
-                    <span className="text-[8px] text-muted-foreground/60 block text-right mt-1">
-                      {msg.time}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {chatTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-muted border border-border p-3 rounded-2xl rounded-tl-none">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Predefined prompts */}
-            <div className="px-4 py-2 border-t border-border/40 bg-muted/20 flex flex-wrap gap-1.5">
-              {[
-                { label: "Summarize Risk", prompt: "Summarize the customer churn risks." },
-                { label: "Critical Targets", prompt: "Identify the accounts at highest risk." },
-                { label: "Financials", prompt: "What are all my monitored MRR stats?" },
-              ].map((chip, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => triggerBotResponse(chip.prompt)}
-                  className="px-2 py-1 text-[10px] border border-border hover:border-indigo-500/50 bg-background rounded-full font-semibold transition-colors focus:outline-none"
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (chatInput.trim()) {
-                  triggerBotResponse(chatInput.trim())
-                  setChatInput("")
-                }
-              }}
-              className="p-3 border-t border-border/40 bg-card flex gap-2"
-            >
-              <input
-                type="text"
-                placeholder="Ask about risk, metrics, playbooks..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-grow text-xs px-3 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-              <button
-                type="submit"
-                className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-colors focus:outline-none"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
     </div>
   )
 }
-

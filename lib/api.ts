@@ -1,4 +1,4 @@
-const API_URL = ""  // same-origin Next.js API routes
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export interface User {
   id: number;
@@ -6,7 +6,6 @@ export interface User {
   email: string;
   company: string;
   username?: string | null;
-  avatarUrl?: string | null;
   plan?: string;
 }
 
@@ -57,6 +56,14 @@ export interface DashboardData {
   lastSync: string;
 }
 
+export interface PlatformStats {
+  totalUsers: number;
+  totalCustomers: number;
+  totalAlerts: number;
+  avgChurnRisk: number;
+  highRiskCount: number;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('token');
@@ -86,10 +93,7 @@ export function getUser(): User | null {
   }
 }
 
-async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -97,14 +101,26 @@ async function apiFetch<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new Error(
+      `Cannot reach API at ${API_URL}. Run: npm run dev (starts frontend + backend together).`
+    );
+  }
 
   let data: { message?: string };
   try {
     data = await response.json();
   } catch {
-    throw new Error(response.ok ? 'Invalid response from server' : `Server error (${response.status})`);
+    throw new Error(
+      response.ok
+        ? 'Invalid response from server'
+        : `Server error (${response.status}). Is the backend running on port 5000?`
+    );
   }
+
   if (!response.ok) throw new Error(data.message || 'Request failed');
   return data as T;
 }
@@ -114,6 +130,8 @@ export async function registerUser(payload: {
   email: string;
   password: string;
   company: string;
+  username?: string;
+  plan?: string;
 }) {
   const data = await apiFetch<{
     success: boolean;
@@ -146,47 +164,22 @@ export async function loginUser(email: string, password: string) {
 
 export async function fetchDashboard(search?: string): Promise<DashboardData> {
   const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const data = await apiFetch<{ success: boolean } & DashboardData>(`/api/dashboard${query}`);
+  const data = await apiFetch<{ success: boolean } & DashboardData>(
+    `/api/dashboard${query}`
+  );
   return data;
-}
-
-export async function updateProfile(payload: {
-  name: string;
-  company: string;
-  avatarUrl?: string;
-}) {
-  const data = await apiFetch<{
-    success: boolean;
-    user: User;
-    message: string;
-  }>('/api/auth/profile', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
-  setUser(data.user);
-  return data;
-}
-
-export async function updatePassword(payload: {
-  currentPassword: string;
-  newPassword: string;
-}) {
-  return apiFetch<{
-    success: boolean;
-    message: string;
-  }>('/api/auth/password', {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  });
 }
 
 export async function triggerCustomerNudge(customerId: number) {
-  return apiFetch<{ success: boolean; message: string }>(`/api/customers/${customerId}/trigger`, { method: 'POST' });
+  return apiFetch<{ success: boolean; message: string; customer: Customer }>(
+    `/api/dashboard/customers/${customerId}/trigger`,
+    { method: 'POST' }
+  );
 }
 
 export async function exportCustomersCsv() {
   const token = getToken();
-  const response = await fetch('/api/dashboard/export', {
+  const response = await fetch(`${API_URL}/api/dashboard/export`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!response.ok) throw new Error('Export failed');
@@ -204,12 +197,35 @@ export async function fetchPrediction(
   tickets: number,
   invoiceDays: number
 ): Promise<{ success: boolean; risk: number; source: 'flask' | 'fallback' }> {
-  return apiFetch<{
-    success: boolean;
-    risk: number;
-    source: 'flask' | 'fallback';
-  }>('/api/dashboard/predict', {
+  return apiFetch('/api/dashboard/predict', {
     method: 'POST',
     body: JSON.stringify({ logins, tickets, invoiceDays }),
   });
+}
+
+export async function submitContact(payload: {
+  name: string;
+  email: string;
+  company?: string;
+  mrr?: string;
+  message: string;
+}) {
+  return apiFetch<{ success: boolean; message: string }>('/api/contact', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function subscribeNewsletter(email: string) {
+  return apiFetch<{ success: boolean; message: string }>('/api/newsletter', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function fetchPlatformStats(): Promise<PlatformStats> {
+  const data = await apiFetch<{ success: boolean; stats: PlatformStats }>(
+    '/api/stats'
+  );
+  return data.stats;
 }

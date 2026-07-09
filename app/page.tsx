@@ -18,8 +18,17 @@ import {
   Database,
   Smartphone
 } from "lucide-react"
+import { fetchPlatformStats, type PlatformStats } from "@/lib/api"
 
 export default function Page() {
+  const [stats, setStats] = React.useState<PlatformStats | null>(null)
+
+  React.useEffect(() => {
+    fetchPlatformStats()
+      .then(setStats)
+      .catch(() => setStats(null))
+  }, [])
+
   // Calculator State
   const [mrr, setMrr] = React.useState(50000)
   const [churnRate, setChurnRate] = React.useState(5)
@@ -97,7 +106,9 @@ export default function Page() {
                   <div className="md:col-span-2 border border-border/40 rounded-xl p-4 bg-muted/20 text-left">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-sm font-semibold">High Churn Risk Customers</h3>
-                      <span className="text-xs text-destructive bg-destructive/10 px-2 py-0.5 rounded-full font-medium">8 at High Risk</span>
+                      <span className="text-xs text-destructive bg-destructive/10 px-2 py-0.5 rounded-full font-medium">
+                        {stats ? `${stats.highRiskCount} at High Risk` : "Live Risk Feed"}
+                      </span>
                     </div>
                     <div className="space-y-3">
                       {[

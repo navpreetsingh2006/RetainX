@@ -4,17 +4,26 @@ import * as React from "react"
 import Link from "next/link"
 import { TrendingUp, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { subscribeNewsletter } from "@/lib/api"
 
 export function Footer() {
   const [email, setEmail] = React.useState("")
   const [subscribed, setSubscribed] = React.useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = React.useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email.trim()) {
+    if (!email.trim()) return
+
+    setError("")
+    try {
+      await subscribeNewsletter(email.trim())
       setSubscribed(true)
       setEmail("")
       setTimeout(() => setSubscribed(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Subscription failed")
     }
   }
 
@@ -121,6 +130,7 @@ export function Footer() {
                   </Button>
                 </div>
               </form>
+              {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
             </div>
           </div>
 

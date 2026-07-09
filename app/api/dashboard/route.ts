@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       dataJson: true,
     },
   });
-  const formattedCustomers: Customer[] = customers.map((c) => ({
+  const formattedCustomers: Customer[] = customers.map((c: any) => ({
     id: c.id,
     name: c.name,
     email: c.description ?? '',
