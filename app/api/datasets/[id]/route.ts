@@ -2,15 +2,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 
-type Params = { params: { id: string } };
-
 // DELETE /api/datasets/[id]
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: rawId } = await params;
   const auth = request.headers.get('authorization');
   const payload = auth ? verifyToken(auth.replace('Bearer ', '')) : null;
   if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-  const id = parseInt(params.id);
+  const id = parseInt(rawId);
   const dataset = await prisma.dataset.findFirst({ where: { id, userId: payload.sub } });
   if (!dataset) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
@@ -22,12 +24,16 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 }
 
 // PUT /api/datasets/[id]
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: rawId } = await params;
   const auth = request.headers.get('authorization');
   const payload = auth ? verifyToken(auth.replace('Bearer ', '')) : null;
   if (!payload) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
-  const id = parseInt(params.id);
+  const id = parseInt(rawId);
   const { name, description, dataJson } = await request.json();
 
   const dataset = await prisma.dataset.findFirst({ where: { id, userId: payload.sub } });
