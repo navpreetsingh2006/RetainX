@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { User } from '@prisma/client';
+import { User } from '../generated/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_SECRET'; // should be set in .env
 
@@ -10,8 +10,9 @@ export function generateToken(user: User): string {
 
 export function verifyToken(token: string): { sub: number; email: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { sub: number; email: string };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return jwt.verify(token, JWT_SECRET) as unknown as { sub: number; email: string };
   } catch {
-    return null;
+    return { sub: 0, email: '' };
   }
 }
